@@ -51,6 +51,15 @@ export type Database = {
           distance: number
         }[]
       }
+      query_embedding_small_with_hex: {
+        Args: { query_embedding: string; match_count?: number }
+        Returns: {
+          name: string
+          hex: string
+          is_good_name: boolean
+          distance: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

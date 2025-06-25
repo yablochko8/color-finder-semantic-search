@@ -97,9 +97,7 @@ const testSaveColorEntry = async () => {
 // testSaveColorEntry();
 
 const testQuery = async () => {
-  const testEmbedding = await getEmbedding(
-    "milky coffee in the middle of the night"
-  );
+  const testEmbedding = await getEmbedding("the one holy religious order");
 
   const { data, error } = await clientSupabase.rpc("query_embedding_small", {
     query_embedding: JSON.stringify(testEmbedding),
@@ -163,4 +161,4 @@ const runFullScript = async (maxRows?: number) => {
   console.log("Script completed!");
 };
 
-// runFullScript(50);
+// runFullScript(2000);
