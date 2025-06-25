@@ -96,6 +96,25 @@ const testSaveColorEntry = async () => {
 
 // testSaveColorEntry();
 
+const testQuery = async () => {
+  const testEmbedding = await getEmbedding(
+    "milky coffee in the middle of the night"
+  );
+
+  const { data, error } = await clientSupabase.rpc("query_embedding_small", {
+    query_embedding: JSON.stringify(testEmbedding),
+    match_count: 10,
+  });
+
+  if (error) {
+    console.error("RPC error:", error);
+  } else {
+    console.log("Matches:", data);
+  }
+};
+
+// testQuery();
+
 ////////////////////
 // UTILITY FUNCTIONS + FULL SCRIPT
 ////////////////////

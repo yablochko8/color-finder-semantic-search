@@ -44,7 +44,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      query_embedding_small: {
+        Args: { query_embedding: string; match_count?: number }
+        Returns: {
+          name: string
+          distance: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
