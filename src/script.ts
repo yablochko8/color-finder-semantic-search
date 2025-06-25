@@ -34,11 +34,14 @@ type PreppedColor = {
 };
 
 const saveColorEntry = async (preppedColor: PreppedColor) => {
-  const { data, error } = await clientSupabase
+  const { error } = await clientSupabase
     .from("colors")
-    .insert(preppedColor);
-  console.log(data);
-  console.log(error);
+    .upsert(preppedColor, { onConflict: "name" });
+  if (error) {
+    console.error(error);
+  } else {
+    console.log("Saved color entry", preppedColor.name);
+  }
 };
 
 ////////////////////
@@ -50,17 +53,19 @@ const testEmbedding = async () => {
   console.log(embedding);
   console.log(embedding.length);
 };
+
 // testEmbedding();
 
 const testSaveColorEntry = async () => {
   const rawColor = {
     name: "100 Mph",
-    hex: "#c93f38",
+    hex: "#aaabbb",
+    // hex: "#c93f38",
     is_good_name: true,
   };
   const preppedColor = await prepColorData(rawColor);
   await saveColorEntry(preppedColor);
-  console.log("Saved color entry");
+  console.log("Test sequence complete.");
 };
 
-testSaveColorEntry();
+// testSaveColorEntry();
