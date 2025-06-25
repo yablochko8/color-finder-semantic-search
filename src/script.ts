@@ -1,3 +1,4 @@
+import * as fs from "fs/promises";
 import { clientOpenai } from "./clientOpenai";
 import { clientSupabase } from "./clientSupabase";
 
@@ -10,17 +11,36 @@ const getEmbedding = async (inputText: string): Promise<number[]> => {
   return embedding.data[0].embedding;
 };
 
+const readColorRow = (rowText: string): RawColor => {
+  const [name, hex, isGoodName] = rowText.split(",");
+  return {
+    name,
+    hex,
+    is_good_name: isGoodName === "x",
+  };
+};
+
 type RawColor = {
   name: string;
   hex: string;
   is_good_name: boolean;
 };
 
-const prepColorData = async (colorEntry: RawColor): Promise<PreppedColor> => {
-  const embeddingSmall = await getEmbedding(colorEntry.name);
-  const noHashHex = colorEntry.hex.replace("#", "");
+const validRawColor = (rawColor: RawColor): boolean => {
+  const validName = rawColor.name.length > 0 && rawColor.name.length < 100;
+  const validHex = rawColor.hex.length === 7 && rawColor.hex.startsWith("#");
+  const validIsGoodName = typeof rawColor.is_good_name === "boolean";
+  return validName && validHex && validIsGoodName;
+};
+
+const prepColorEntry = async (rawColor: RawColor): Promise<PreppedColor> => {
+  if (!validRawColor(rawColor)) {
+    throw new Error(`Invalid raw color: ${JSON.stringify(rawColor)}`);
+  }
+  const embeddingSmall = await getEmbedding(rawColor.name);
+  const noHashHex = rawColor.hex.replace("#", "");
   return {
-    ...colorEntry,
+    ...rawColor,
     hex: noHashHex,
     embedding_small: JSON.stringify(embeddingSmall),
   };
@@ -63,9 +83,36 @@ const testSaveColorEntry = async () => {
     // hex: "#c93f38",
     is_good_name: true,
   };
-  const preppedColor = await prepColorData(rawColor);
+  const preppedColor = await prepColorEntry(rawColor);
   await saveColorEntry(preppedColor);
   console.log("Test sequence complete.");
 };
 
 // testSaveColorEntry();
+
+////////////////////
+// FULL SCRIPT
+////////////////////
+
+const getColorRows = async (
+  filePath: string,
+  omitHeader: boolean = true,
+  maxRows?: number
+): Promise<string[]> => {
+  const file = await fs.readFile(filePath, "utf8");
+  const rows = file.split("\n");
+  const contentRows = omitHeader ? rows.slice(1) : rows;
+  const returnRows = maxRows ? contentRows.slice(0, maxRows) : contentRows;
+  return returnRows;
+};
+
+const runFullScript = async (maxRows?: number) => {
+  const colorRows = await getColorRows("data/colors.csv", true, maxRows);
+  for (const row of colorRows) {
+    const rawColor = readColorRow(row);
+    const preppedColor = await prepColorEntry(rawColor);
+    await saveColorEntry(preppedColor);
+  }
+};
+
+// runFullScript(100);
