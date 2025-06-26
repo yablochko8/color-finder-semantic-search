@@ -31,7 +31,7 @@ I prefer to use the interface for something like this, but it doesn't let you sp
 We're going to need the following columns:
 
 - id (bigserial)
-- created_at (timestampe, default to now() - may be useful later if expanding the list)
+- created_at (timestamp, default to now() - may be useful later if expanding the list)
 - name (string)
 - hex (string)
 - is_good_name (boolean, default false)
