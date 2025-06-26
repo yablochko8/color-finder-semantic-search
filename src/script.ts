@@ -131,11 +131,11 @@ const getColorRows = async (
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const runFullScript = async (maxRows?: number) => {
+const runFullScript = async (maxRows?: number, startRow?: number) => {
   const colorRows = await getColorRows(COLORS_CSV_PATH, true, maxRows);
   console.log(`Processing ${colorRows.length} color entries...`);
 
-  for (let i = 0; i < colorRows.length; i++) {
+  for (let i = startRow || 0; i < colorRows.length; i++) {
     const row = colorRows[i];
     try {
       const rawColor = readColorRow(row);
@@ -147,11 +147,8 @@ const runFullScript = async (maxRows?: number) => {
         console.log(
           `Processed ${i + 1}/${colorRows.length} entries. Adding delay...`
         );
-        await delay(500); // this (in ms) is a delay between every 10 entries
+        await delay(200); // this (in ms) is a delay between every 10 entries
       }
-
-      // Add a small delay between each entry to be respectful to APIs
-      await delay(100); // this (in ms) is a delay between each entry
     } catch (error) {
       console.error(`Error processing row ${i + 1}:`, error);
       // Continue with next entry instead of stopping the entire script
@@ -161,4 +158,4 @@ const runFullScript = async (maxRows?: number) => {
   console.log("Script completed!");
 };
 
-// runFullScript(2000);
+// runFullScript(100000, 2570);
