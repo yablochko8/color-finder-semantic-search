@@ -260,29 +260,39 @@ Here's the code:
 
 ```sql
 create or replace function query_embedding_small(
-query_embedding vector(1536),
-match_count int default 10
+  query_embedding vector(1536),
+  match_count int default 10
 )
 returns table (
-name text,
-hex text,
-is_good_name boolean,
-distance float
+  name text,
+  hex text,
+  is_good_name boolean,
+  distance float
 )
-language sql stable
+language sql volatile
 as $$
-select
-name,
-hex,
-is_good_name,
-embedding_small <#> query_embedding as distance
-from colors
-order by distance
-limit match_count;
+  set statement_timeout = 15000;
 
-$$
-;
+  set ivfflat.probes = 5;
+
+  select
+    name,
+    hex,
+    is_good_name,
+    embedding_small <#> query_embedding as distance
+  from colors
+  order by distance
+  limit match_count;
+$$;
 ```
+
+Some explanations:
+
+statement_timeout - How long (in ms) before a timeout on calling this function. Default is around 8-10 seconds, I've bumped to 15 seconds here.
+
+ivfflat probes - This sets how many IVF lists the index will scan during search. Higher values = more accurate results but slower queries. Default is 1, we're setting to 10 for better accuracy at cost of some speed.
+
+language sql volatile - This tells Postgres that this is a SQL function that can modify data and its output may change even with the same inputs. 'volatile' means the function's result can vary even if called with identical parameters. This is required if we want to use a non-default number of ivfflat probes.
 
 # STEP SIX - RUN A TEST QUERY
 
@@ -333,7 +343,9 @@ message: "canceling statement due to statement timeout",
 }
 ```
 
-Here's what I did to try to solve this:
+Here's what I did to solve this:
+
+## 1 - Run ANALYZE (just once)
 
 ```
 ANALYZE public.colors;
@@ -341,4 +353,16 @@ ANALYZE public.colors;
 
 PostgreSQL scans a sample of rows in the public.colors table and updates its internal statistics about the data. These stats help the query planner decide how to execute queries efficiently — for example, whether to use an index or not.
 
-In my case it turned out I used the wrong distancing metric.
+## 2 - Decrease the number of IVFFLAT probes
+
+In IVFFlat indexing, a higher probes value makes queries slower but more accurate.
+
+## 3 - Increase the timeout time in the RPC function
+
+Aka cheating. When I bumped the timeout to 30000ms all my problems went away.
+
+## Other options that I did NOT need, but you might
+
+- Recreate the index with a higher `lists` value (this only works if your querying with a `probes` that is much lower than the index's number of `lists`)
+- Add a catch-and-retry in my server code. The second request always seems to be faster so there must be some warm-up logic or internal caching happening on Supabase
+- Create my own cache of recent results in something like Redis
