@@ -158,4 +158,4 @@ const runFullScript = async (maxRows?: number, startRow?: number) => {
   console.log("Script completed!");
 };
 
-runFullScript(100000, 2570);
+// runFullScript(100000, 2570);
