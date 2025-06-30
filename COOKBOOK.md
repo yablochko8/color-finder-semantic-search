@@ -1,10 +1,3 @@
-GUIDE
-
-trivial cost (total cost for 30,000 entries came to $0.002)
-
-https://platform.openai.com/docs/models/text-embedding-3-small
-https://platform.openai.com/docs/models/text-embedding-3-large
-
 # STEP ONE - CREATE A VECTOR DATABASE TO HOLD THE DATA
 
 Supabase > new project
@@ -36,7 +29,6 @@ We're going to need the following columns:
 - hex (string)
 - is_good_name (boolean, default false)
 - embedding_small vector(1536)
-- embedding_large vector(3072)
 
 We will need an index for the embedding column that we end up searching on, but we'll get better performance if we add that AFTER we've populated the table with data.
 
@@ -49,8 +41,7 @@ created_at timestamp with time zone default now(),
 name text not null unique,
 hex text,
 is_good_name boolean default false,
-embedding_small vector(1536),
-embedding_large vector(3072)
+embedding_small vector(1536)
 );
 ```
 
@@ -197,17 +188,22 @@ I've also added in time delays just in case.
 The command you will want to run looks something like this:
 
 ```sql
-CREATE INDEX CONCURRENTLY colors_embedding_small_idx
+CREATE INDEX CONCURRENTLY colors_embedding_ip_small_idx
 on public.colors
-using ivfflat (embedding_small vector_cosine_ops)
-with (lists = 100);
+using ivfflat (embedding_small vector_ip_ops)
+with (lists = 30);
 ```
 
 **ivfflat** = An index method optimized for high-dimensional vector data. It divides vectors into clusters for faster searching. Alternatives would be hnsw (Hierarchical Navigable Small World) which can be faster but uses more memory.
 
-**vector_cosine_ops** = Operator class that uses cosine similarity for comparing vectors. Alternatives are vector_l2_ops (Euclidean distance) and vector_ip_ops (inner product), but cosine similarity is generally best for semantic search.
+**vector_ip_ops** (internal product) = Operator class that uses inner product for comparing vectors. Alternatives are vector_l2_ops (Euclidean distance) and vector_cosine_ops (cosine similarity), but cosine similarity is generally best for semantic search. Thank you Chris Loy for walking me through this.
 
-**lists** = Number of clusters to divide the vectors into. Rule of thumb is sqrt(n)/2 where n is number of rows - so for 30k rows, sqrt(30000)/2 ≈ 87, rounded up to 100 for simplicity. More lists = faster search but less accurate.
+**lists** = Number of clusters to divide the vectors into. Generally: More lists = faster search but less accurate.
+
+I followed the [Microsoft advice for ivfflat](https://learn.microsoft.com/en-us/azure/cosmos-db/postgresql/howto-optimize-performance-pgvector) which says:
+
+1. Use lists equal to rows / 1000 for tables with up to 1 million rows and sqrt(rows) for larger datasets.
+2. For probes start with lists / 10 for tables up to 1 million rows and sqrt(lists) for larger datasets.
 
 HOWEVER - you may hit the problem I hit, which was that the working memory needed is higher than the default Supabase limits, and can't be increased via the interface.
 
@@ -259,36 +255,35 @@ For our needs, we're going to want to query the embedding column, and get ten re
 Here's the code:
 
 ```sql
-create or replace function query_embedding_small(
+CREATE OR REPLACE FUNCTION query_embedding_small(
   query_embedding vector(1536),
   match_count int default 10
 )
-returns table (
+RETURNS TABLE (
   name text,
   hex text,
   is_good_name boolean,
   distance float
 )
-language sql volatile
-as $$
-  set statement_timeout = 15000;
+LANGUAGE sql VOLATILE
+AS $$
 
-  set ivfflat.probes = 5;
+  SET  ivfflat.probes = 15;
 
-  select
-    name,
-    hex,
-    is_good_name,
-    embedding_small <#> query_embedding as distance
-  from colors
-  order by distance
-  limit match_count;
+  SELECT
+    c.name,
+    c.hex,
+    c.is_good_name,
+    c.embedding_small <#> query_embedding AS distance
+  FROM (
+    SELECT * FROM colors
+    ORDER BY embedding_small <#> query_embedding
+    LIMIT match_count
+  ) c;
 $$;
 ```
 
 Some explanations:
-
-statement_timeout - How long (in ms) before a timeout on calling this function. Default is around 8-10 seconds, I've bumped to 15 seconds here.
 
 ivfflat probes - This sets how many IVF lists the index will scan during search. Higher values = more accurate results but slower queries. Default is 1, we're setting to 10 for better accuracy at cost of some speed.
 
@@ -301,17 +296,10 @@ const testQuery = async () => {
   const testEmbedding = await getEmbedding(
     "milky coffee in the middle of the night"
   );
-
   const { data, error } = await clientSupabase.rpc("query_embedding_small", {
     query_embedding: JSON.stringify(testEmbedding),
     match_count: 10,
   });
-
-  if (error) {
-    console.error("RPC error:", error);
-  } else {
-    console.log("Matches:", data);
-  }
 };
 ```
 
@@ -330,9 +318,11 @@ Bad news: It pushed me over the database size limits on Supabase...
 
 If i had known this I might have only used 90% of the data, but I didn't so I've moved up to Pro plan size.
 
-# STEP NINE - SOLVE TIMEOUTS
+# STEP NINE - CONNECT FRONTEND
 
-At this point I started getting this message:
+# Side Quest 1 - Solving Timeouts
+
+At one point I started getting timeout errors:
 
 ```json
 RPC error: {
@@ -343,26 +333,52 @@ message: "canceling statement due to statement timeout",
 }
 ```
 
-Here's what I did to solve this:
+It turned out these were caused by the structure of the RPC function.
 
-## 1 - Run ANALYZE (just once)
+15,000ms version:
 
+```sql
+SELECT
+  name,
+  hex,
+  is_good_name,
+  embedding_small <#> query_embedding as distance
+FROM colors
+ORDER BY distance
+LIMIT match_count;
 ```
-ANALYZE public.colors;
+
+150ms version:
+
+```sql
+SELECT
+  c.name,
+  c.hex,
+  c.is_good_name,
+  c.embedding_small <#> query_embedding AS distance
+FROM (
+  SELECT * FROM colors
+  ORDER BY embedding_small <#> query_embedding
+  LIMIT match_count
+) c;
 ```
 
-PostgreSQL scans a sample of rows in the public.colors table and updates its internal statistics about the data. These stats help the query planner decide how to execute queries efficiently — for example, whether to use an index or not.
+I don't know enough about postgres ordering to understand what's at play here, but I'm happy I found my way past it.
 
-## 2 - Decrease the number of IVFFLAT probes
+Before narrowing down on the actual cause of the latency, here are other things I tried that might be useful to others:
 
-In IVFFlat indexing, a higher probes value makes queries slower but more accurate.
+- Run ANALYZE (command is just `ANALYZE public.colors): PostgreSQL scans a sample of rows in the public.colors table and updates its internal statistics about the data. These stats help the query planner decide how to execute queries efficiently — for example, whether to use an index or not. This is a once-off function.
+- Decreased the number of IVFFLAT probes. In IVFFlat indexing, a higher probes value makes queries slower but more accurate.
+- Increased the timeout time in the RPC function (`  set statement_timeout = 15000;`). Aka cheating. When I bumped the timeout to 30000ms all my queries got a response, but this was too long for my use case.
+- Recreated the index with a higher `lists` value (this only works if your querying with a `probes` that is much lower than the index's number of `lists`)
+- Added a catch-and-retry in my server code. The second request always seems to be faster so there must be some warm-up logic or internal caching happening on Supabase
 
-## 3 - Increase the timeout time in the RPC function
+# Side notes
 
-Aka cheating. When I bumped the timeout to 30000ms all my problems went away.
+- Writing this cookbook as I went made it much easier to jump back in after a one day gap when my focus was elsewhere
+- This cookbook would have saved me an estimated 5 hours I spent on deadends and debugging
+- Embedding costs for this project were trivial. 30,000 entries came to $0.002 (OpenAI's text-embedding-3-small)
 
-## Other options that I did NOT need, but you might
+## References
 
-- Recreate the index with a higher `lists` value (this only works if your querying with a `probes` that is much lower than the index's number of `lists`)
-- Add a catch-and-retry in my server code. The second request always seems to be faster so there must be some warm-up logic or internal caching happening on Supabase
-- Create my own cache of recent results in something like Redis
+- https://supabase.com/docs/guides/ai/semantic-search
