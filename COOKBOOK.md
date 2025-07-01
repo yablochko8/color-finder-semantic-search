@@ -48,14 +48,14 @@ I usually prefer to use the interface for something like this, but the Supabase 
 
 For our color data we're going to need the following columns:
 
-- id (bigserial)
-- created_at (timestamp, default to now() - may be useful later if expanding the list)
-- name (string - in this case we want to make sure we don't allow duplicate names)
+- id (number is good for us here)
+- created_at (timestamp defaulting to now() - may be useful later if expanding the list)
+- name (unique string - we don't want duplicate names pointing at different colors)
 - hex (string)
-- is_good_name (boolean, default false)
+- is_good_name (boolean defaulting to false)
 - embedding_openai_1536 vector(1536)
 
-So here's the SQL:
+Here's the SQL:
 
 ```sql
 create table public.colors (
@@ -68,7 +68,7 @@ embedding_openai_1536 vector(1536)
 );
 ```
 
-You may get a security warning about Row Level Security, so enable that on the table manually after creating it. Then click "Add RLS Policy". I just use the Templates to enable read access for all users.
+You may get a security warning about Row Level Security. You can manually enable that on the table after creating it, then click "Add RLS Policy". When choosing policy, I just used the Templates to enable read access for all users.
 
 ## Step 3 - Pull in the data source
 
@@ -100,7 +100,7 @@ git push
 
 I'm using TypeScript.
 
-First I write a simple integration with OpenAI (Mistral will come later):
+First I create a simple client object with OpenAI (Mistral will come later):
 
 ```ts
 import OpenAI from "openai";
@@ -141,7 +141,7 @@ const testRun = async () => {
 testRun();
 ```
 
-To run this, I use bun. So the Terminal command is:
+To run this, I use `bun`. So the Terminal command is:
 
 ```sh
 bun src/script.ts
