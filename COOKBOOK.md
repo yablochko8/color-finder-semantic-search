@@ -316,7 +316,7 @@ $$;
 
 Some explanations:
 
-`ivfflat probes` - This sets how many IVF lists the index will scan during search. Higher values = more accurate results but slower queries. Default is 1, we're setting to 10 for better accuracy at cost of some speed.
+`ivfflat probes` - This sets how many IVF lists the index will scan during search. Higher values = more accurate results but slower queries. The formula for such a small database gives us a number as low as 3, but I've set it higher for better accuracy at cost of some speed.
 
 `language sql volatile` - This tells Postgres that this is a SQL function that can modify data and its output may change even with the same inputs. 'volatile' means the function's result can vary even if called with identical parameters. This is required if we want to use a non-default number of ivfflat probes.
 
