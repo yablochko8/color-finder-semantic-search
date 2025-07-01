@@ -48,7 +48,7 @@ const prepColorEntry = async (rawColor: RawColor): Promise<PreppedColor> => {
   return {
     ...rawColor,
     hex: noHashHex,
-    embedding_small: JSON.stringify(embeddingSmall),
+    embedding_openai_1536: JSON.stringify(embeddingSmall),
   };
 };
 
@@ -56,7 +56,7 @@ type PreppedColor = {
   name: string;
   hex: string;
   is_good_name: boolean;
-  embedding_small: string;
+  embedding_openai_1536: string;
 };
 
 const saveColorEntry = async (preppedColor: PreppedColor) => {

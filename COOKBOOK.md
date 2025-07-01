@@ -39,7 +39,7 @@ We're going to need the following columns:
 - name (string - in this case we want to make sure we don't allow duplicate names)
 - hex (string)
 - is_good_name (boolean, default false)
-- embedding_small vector(1536)
+- embedding_openai_1536 vector(1536)
 
 So here's the SQL:
 
@@ -50,7 +50,7 @@ created_at timestamp with time zone default now(),
 name text not null unique,
 hex text,
 is_good_name boolean default false,
-embedding_small vector(1536)
+embedding_openai_1536 vector(1536)
 );
 ```
 
@@ -189,7 +189,7 @@ type PreppedColor = {
   name: string;
   hex: string;
   is_good_name: boolean;
-  embedding_small: string;
+  embedding_openai_1536: string;
 };
 
 const saveColorEntry = async (preppedColor: PreppedColor) => {
@@ -221,7 +221,7 @@ The command you will want to run looks something like this:
 ```sql
 CREATE INDEX CONCURRENTLY colors_embedding_ip_small_idx
 on public.colors
-using ivfflat (embedding_small vector_ip_ops)
+using ivfflat (embedding_openai_1536 vector_ip_ops)
 with (lists = 30);
 ```
 
@@ -267,9 +267,9 @@ Once connected to the database by command line, you can run this code.
 ```sql
 SET maintenance_work_mem = '128MB';
 
-CREATE INDEX CONCURRENTLY colors_embedding_small_idx
+CREATE INDEX CONCURRENTLY colors_embedding_openai_1536_idx
 on public.colors
-using ivfflat (embedding_small vector_cosine_ops)
+using ivfflat (embedding_openai_1536 vector_cosine_ops)
 with (lists = 100);
 ```
 
@@ -288,7 +288,7 @@ For our needs, we're going to want to query the embedding column, and get ten re
 Here's the code for creating the index:
 
 ```sql
-CREATE OR REPLACE FUNCTION query_embedding_small(
+CREATE OR REPLACE FUNCTION search_embedding_openai_1536(
   query_embedding vector(1536),
   match_count int default 10
 )
@@ -307,10 +307,10 @@ AS $$
     c.name,
     c.hex,
     c.is_good_name,
-    c.embedding_small <#> query_embedding AS distance
+    c.embedding_openai_1536 <#> query_embedding AS distance
   FROM (
     SELECT * FROM colors
-    ORDER BY embedding_small <#> query_embedding
+    ORDER BY embedding_openai_1536 <#> query_embedding
     LIMIT match_count
   ) c;
 $$;
@@ -333,10 +333,13 @@ const testQuery = async () => {
   const testEmbedding = await getEmbedding(
     "milky coffee in the middle of the night"
   );
-  const { data, error } = await clientSupabase.rpc("query_embedding_small", {
-    query_embedding: JSON.stringify(testEmbedding),
-    match_count: 10,
-  });
+  const { data, error } = await clientSupabase.rpc(
+    "search_embedding_openai_1536",
+    {
+      query_embedding: JSON.stringify(testEmbedding),
+      match_count: 10,
+    }
+  );
 };
 ```
 
@@ -388,7 +391,7 @@ SELECT
   name,
   hex,
   is_good_name,
-  embedding_small <#> query_embedding as distance
+  embedding_openai_1536 <#> query_embedding as distance
 FROM colors
 ORDER BY distance
 LIMIT match_count;
@@ -401,10 +404,10 @@ SELECT
   c.name,
   c.hex,
   c.is_good_name,
-  c.embedding_small <#> query_embedding AS distance
+  c.embedding_openai_1536 <#> query_embedding AS distance
 FROM (
   SELECT * FROM colors
-  ORDER BY embedding_small <#> query_embedding
+  ORDER BY embedding_openai_1536 <#> query_embedding
   LIMIT match_count
 ) c;
 ```
