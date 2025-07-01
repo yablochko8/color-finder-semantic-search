@@ -98,9 +98,7 @@ const testSaveColorEntry = async () => {
 
 const testQuery = async (logging: boolean = false) => {
   const startTime = performance.now();
-  const testEmbedding = await getEmbedding(
-    "the one holy religious order of catholic france and poland"
-  );
+  const testEmbedding = await getEmbedding("very fast car");
 
   const checkpoint1 = performance.now();
 
@@ -123,10 +121,12 @@ const testQuery = async (logging: boolean = false) => {
     console.error("RPC error:", error);
   } else {
     if (logging) {
-      console.log("Matches:", data);
+      data.map((d, i) => {
+        console.log(`${i + 1}. ${d.name}, ${d.distance}`);
+      });
       console.log(`Query took ${duration}ms`);
       console.log(`OpenAI call to get embedding: ${duration1}ms`);
-      console.log(`Supabase call to get results: ${duration2}ms`);
+      console.log(`Supabase call to get results: ${duration2}ms \n`);
     }
   }
 };
