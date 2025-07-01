@@ -2,6 +2,8 @@ import { clientMistral } from "../connections/clientMistral";
 import { clientSupabase } from "../connections/clientSupabase";
 import * as fs from "fs/promises";
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const getColorNames = async (
   filePath: string,
   omitHeader: boolean = true,
@@ -22,9 +24,7 @@ const getColorNames = async (
 // Avoid skipping rows! The "stopRow" of one round should be the "startRow" of the next round.
 // Example:
 // const colorNames = await getColorNames("src/colornames.csv", true, 0, 10);
-// console.log(colorNames);
 // const colorNames2 = await getColorNames("src/colornames.csv", true, 10, 20);
-// console.log(colorNames2);
 
 type MistralUpdate = {
   name: string;
@@ -93,10 +93,11 @@ const updateCycle = async (startRow: number, stopRow: number) => {
 const runFullScript = async (stepSize: number, startRow: number = 0) => {
   for (let i = startRow; i < 35000; i += stepSize) {
     await updateCycle(i, i + stepSize);
+    await delay(500);
   }
 };
 
-// updateCycle(10, 20);
+// runFullScript(50);
 
 ////////////////////
 // TEST FUNCTIONS
