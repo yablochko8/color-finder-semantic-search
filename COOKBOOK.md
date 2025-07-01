@@ -149,15 +149,15 @@ bun src/script.ts
 
 ## Step 5 - Connect our codebase to Supabase
 
-To connect your code with Supabase find your Project ID (find this in Settings > General > Project Settings).
+To connect your code with Supabase find your Project ID (find this in `Settings > General > Project Settings`).
 
 It will look something like this: `abcdefghijklmnopqrst`
 
-Your .env file will need a SUPABASE_URL, which will be built around the Project ID using this format:
+Your .env file will need a `SUPABASE_URL`, which will be built around the Project ID using this format:
 
 `https://abcdefghijklmnopqrst.supabase.co`
 
-Your SUPABASE_SERVICE_ROLE_KEY is a longer string that you'll find in Settings > API Keys > Reveal.
+Your `SUPABASE_SERVICE_ROLE_KEY` is a longer string that you'll find in `Settings > API Keys > Reveal`.
 
 Here's the code to create your Supabase client on the server:
 
@@ -175,7 +175,7 @@ if (!supabaseUrl || !supabaseKey) {
 export const clientSupabase = createClient<Database>(supabaseUrl, supabaseKey);
 ```
 
-This is my first time using Supabase (historically used Prisma ORM) so I was thrilled to learn it gives you a clean script for generating a types file.
+This is my first time using Supabase (historically I used Prisma ORM) so I was thrilled to learn it gives you a clean script for generating a types file.
 
 Here's how to use it. In my case I store the types in `types/supabase.ts` so need to have that `types` folder already created.
 
@@ -183,16 +183,12 @@ Here's how to use it. In my case I store the types in `types/supabase.ts` so nee
 2. Login to Supabase CLI: `npx supabase login`
 3. Follow the login flow in your browser
 4. Generate TypeScript types: `npx supabase gen types typescript --project-id abcdefghijklmnopqrst > types/supabase.ts`
-5. Save that script as a comment in your .env file, you will use it a ton!
+
+Save that script as a comment in your .env file, you will use it a ton!
 
 ## Step 6 - Define what DB-ready data looks like
 
-Our `types/supabase.ts` file makes it nice and clear what shape our data needs to be in, so let's get the data ready. For example that's how we know the vector must be passed in as a string, which would not be otherwise obvious.
-
-Bear in mind:
-
-- the vector must be passed in as a string
-- we want to respect the uniqueness of the name, so we should do an upsert rather than insert
+Our `types/supabase.ts` file makes it nice and clear what shape our data needs to be in, so let's write a function that can write a row of data into our database, and use that to clearly define the state we need to get our data into. For example this approach lets us learn that the vector must be passed in as a string, which would not be otherwise obvious.
 
 So our target state is:
 
@@ -205,7 +201,7 @@ type PreppedColor = {
 };
 ```
 
-Having uniqueness enforced on the `name` column is handy here, it means we can upsert and use the `name` column to spot if we're accidentally running the script over the same data twice.
+And our write function is:
 
 ```ts
 const saveColorEntry = async (preppedColor: PreppedColor) => {
@@ -220,9 +216,11 @@ const saveColorEntry = async (preppedColor: PreppedColor) => {
 };
 ```
 
+Having uniqueness enforced on the `name` column is handy here, it means we can upsert and use the `name` column to spot if we're accidentally running the script over the same data twice.
+
 ## Step 7 - Write function to transform source data into DB-ready data
 
-So I need to run data that looks like this:
+So I needed to transform data that looks like this:
 
 ```csv
 name,hex,good name
@@ -245,13 +243,13 @@ into this:
 
 Some notes on how I approached this:
 
-- Function chain: getColorRows -> readColorRow -> prepColorEntry -> saveColorEntry
+- My functions sequence was `getColorRows -> readColorRow -> prepColorEntry -> saveColorEntry`
 - I chose sure to strip out the hash character from the color values, that's a personal preference
 - I added a time delay just in case of rate limiting
 
-This is a simple ETL script, it lets you `Extract Transform Load` data from one place to another.
+The result is a simple "ETL" script, it lets you `Extract Transform Load` data from one place to another.
 
-ETL scripts are very project specific. If you are following guide this literally to build a color search engine with the same data source, you see how I wrote these functions [here](https://github.com/yablochko8/color-finder-semantic-search/blob/main/src/script.ts).
+ETL scripts are very project-specific. If you are following guide this literally to build a color search engine with the same data source, you see how I wrote these functions [here](https://github.com/yablochko8/color-finder-semantic-search/blob/main/src/script.ts).
 
 ## Step 8 - Save our first few colors to the database
 
@@ -268,24 +266,28 @@ using ivfflat (embedding_openai_1536 vector_ip_ops)
 with (lists = 30);
 ```
 
-Let's explain these terms:
+As far as I can tell the index name is never again touched by humans unless they're viewing a list of indices, so make it as long and specific as you like.
 
-**ivfflat** = An index method optimized for high-dimensional vector data. It divides vectors into clusters for faster searching. Alternatives would be hnsw (Hierarchical Navigable Small World) which can be faster but uses more memory.
+Let's explain the other parameter choices:
 
-**vector_ip_ops** aka internal product = Fast way comparing vectors that can only be used in conjunction with certain embedding models, those that have been unit normalised. Alternatives are vector_l2_ops (Euclidean distance) and vector_cosine_ops (cosine similarity). Thank you to Chris Loy for helping me out here, he wrote a good [explainer post](https://chrisloy.dev/post/2025/06/30/distance-metrics) that goes through the different options.
+**ivfflat** = An index method optimized for high-dimensional vector data. It divides vectors into clusters for faster searching. The alternative would be `hnsw` (Hierarchical Navigable Small World) which can be faster but uses more memory.
 
-**lists** = Number of clusters to divide the vectors into. Generally: More lists = faster search but less accurate.
+**vector_ip_ops** aka internal product = Fast way comparing vectors that can only be used in conjunction with certain embedding models, those that have been unit normalised. Alternatives are `vector_l2_ops` (Euclidean distance) and `vector_cosine_ops` (cosine similarity). Thank you to Chris Loy for helping me out here, he wrote a good [explainer post](https://chrisloy.dev/post/2025/06/30/distance-metrics) that goes through the different options.
+
+**lists** = Number of clusters to divide the vectors into. Generally: More lists give faster search but lower accuracy.
 
 Microsoft gives the following [advice for tuning ivfflat](https://learn.microsoft.com/en-us/azure/cosmos-db/postgresql/howto-optimize-performance-pgvector):
 
 1. Use lists equal to rows / 1000 for tables with up to 1 million rows and sqrt(rows) for larger datasets.
 2. For probes start with lists / 10 for tables up to 1 million rows and sqrt(lists) for larger datasets.
 
-⚠️ **Potential Gotcha: Working Memory Limits**
+So for 30,000 entires, that gives lists = 30, probes = 3. We'll use the probes value later.
 
-You may hit the same problem I hit, which was that the working memory needed is higher than the default Supabase limits, and can't be increased via the interface! This is because the `SET maintenance_work_mem = '128MB';` command can't be run inside a transaction block.
+⚠️ **Potential Gotcha: Working Memory Limits** ⚠️
 
-This meant I needed to connect to the database via Terminal.
+You may hit the same problem I hit, which was that the working memory needed is higher than the default Supabase limits, and can't be increased via the interface! This is because the `SET maintenance_work_mem = '128MB';` command can't run inside a transaction block.
+
+The workaround was to connect to the database via Terminal.
 
 If you haven't done this before you'll need to install Postgres on your machine. For macOS using brew the command is:
 
@@ -295,7 +297,9 @@ brew install postgresql
 
 Then connect in to the database with this command:
 
-`psql "host=aws-0-us-east-2.pooler.supabase.com dbname=postgres user=postgres.abcdefghijklmnopqrst"`
+```sh
+psql "host=aws-0-us-east-2.pooler.supabase.com dbname=postgres user=postgres.abcdefghijklmnopqrst"
+```
 
 Where...
 
@@ -303,9 +307,9 @@ Where...
 - `abcdefghijklmnopqrst` is your Project Id
 - you'll be prompted for a password, it's the password you gave when you first set up the database
 
-I needed this a few times and found it useful to store in .env for easy copy and paste.
+I needed this psql command a few times and found it useful to store in .env for easy copy and paste, alongside the `npx supabase gen types` command.
 
-Once connected to the database by command line, you can run this code.
+Once connected to the database by command line, I was able to run this code.
 
 ```sql
 SET maintenance_work_mem = '128MB';
@@ -324,7 +328,7 @@ Calling the vector index is beyond the scope of the current Supabase SDK, so we'
 
 This is called an RPC (Remote Procedure Call) Function.
 
-For our needs, we're going to want to query the embedding column, and get results back with name, hex, and is_good_name fields. We don't need to specify the index we're calling, as there should be only one for that column.
+For our needs, we're going to want to query the embedding column, and get results back with `name`, `hex`, and `is_good_name` fields. We don't need to specify the index we're calling, as there should be only one for that column.
 
 Here's the code for creating the index:
 
@@ -342,7 +346,7 @@ RETURNS TABLE (
 LANGUAGE sql VOLATILE
 AS $$
 
-  SET  ivfflat.probes = 15;
+  SET  ivfflat.probes = 3;
 
   SELECT
     c.name,
@@ -359,7 +363,7 @@ $$;
 
 Some explanations:
 
-`ivfflat probes` - This sets how many IVF lists the index will scan during search. Higher values = more accurate results but slower queries. The formula for such a small database gives us a number as low as 3, but I've set it higher for better accuracy at cost of some speed.
+`ivfflat probes` - This sets how many IVF lists the index will scan during search. Higher values give more accurate results but slower queries.
 
 `language sql volatile` - This tells Postgres that this is a SQL function that can modify data and its output may change even with the same inputs. 'volatile' means the function's result can vary even if called with identical parameters. This is required if we want to use a non-default number of ivfflat probes.
 
@@ -367,7 +371,7 @@ Some explanations:
 
 ## Step 11 - Run a Test Query
 
-At this stage I only have 50 entries in the database, but we can still test against that!
+At this stage I only have 50 entries in the database, but that's enough to test against.
 
 ```ts
 const testQuery = async () => {
@@ -386,16 +390,16 @@ Sure enough, "very fast car" gives us a result of "100 Mph", success!
 
 ## Step 12 - Add in all the data
 
-At this point I added in all 30,000 entries. This took about 8 hours because I was too impatient to add in batching at the beginning.
+At this point I added in all 30,355 entries. This took about 8 hours because I was too impatient to add in batching at the beginning.
 
-Good news: It cost me $0.02 of API costs for the embedding values.
-Bad news: It pushed me over the database size limits on Supabase...
+- 🟢 Good news: It cost me $0.02 of API costs for the embedding values.
+- 🔴 Bad news: It pushed me over the database size limits on Supabase...
 
 ## Step 13 - Upgrade Supabase
 
-30,000 entries with vectors plus an index plus RPC function results in a database size of 0.53 GB, and the free tier limit is 0.5 GB.
+30k entries with vectors plus an index plus RPC function results in a database size of 0.53 GB, and the free tier limit is 0.5 GB.
 
-If I had known this I might have only used 90% of the data, but I didn't so I've moved up to Pro plan size.
+If I had known this I might have only used a subset of the data, but I didn't so I've moved up to Pro plan size.
 
 ## Step 14 - Integrate with Frontend
 
@@ -451,11 +455,11 @@ FROM (
 ) c;
 ```
 
-Intuitively it looks like we're avoiding the columns being unpacked in the ordering calculation, but I don't know enough about PostgreSQL to understand what's at play here. I'm just happy I found my way past it.
+Intuitively it looks the second one is faster because it's avoiding the columns being unpacked in the ordering calculation, but I don't know enough about PostgreSQL to be sure. I'm just happy I found my way past it.
 
 Before narrowing down on the actual cause of the latency, here are other things I tried that might be useful to others:
 
-- Run ANALYZE (command is just `ANALYZE public.colors): PostgreSQL scans a sample of rows in the public.colors table and updates its internal statistics about the data. These stats help the query planner decide how to execute queries efficiently — for example, whether to use an index or not. This is a once-off function.
+- Run ANALYZE (command is just `ANALYZE public.colors`): PostgreSQL scans a sample of rows in the `public.colors` table and updates its internal statistics about the data. These stats help the query planner decide how to execute queries efficiently — for example, whether to use an index or not. This is a once-off function.
 - Decreased the number of IVFFLAT probes. In IVFFlat indexing, a higher probes value makes queries slower but more accurate.
 - Increased the timeout time in the RPC function (`set statement_timeout = 15000;`). Aka cheating. When I bumped the timeout to 30000ms all my queries got a response, but this was too long for my use case.
 - Recreated the index with a higher `lists` value (this only works if your querying with a `probes` that is much lower than the index's number of `lists`)
@@ -465,7 +469,7 @@ Before narrowing down on the actual cause of the latency, here are other things 
 
 This felt like a nice opportunity to test a Mistral product side-by-side with OpenAI.
 
-Mistral only have one embedding option with size 1024, smaller than OpenAI's smallest option. For a catalog of entries that are often only one word long this is great news. My workflow was a speed-run of everything before:
+Mistral only have one embedding option with size 1024, smaller than OpenAI's smallest option. For a dataset with very short entries this is great news. My workflow was a speed-run of everything before:
 
 1. Added `embedding_mistral_1024 vector(1024)` column to my `colors` table
 2. Wrote an [addMistral.ts](https://github.com/yablochko8/color-finder-semantic-search/blob/main/src/extras/addMistral.ts) script to update all my entries. This time I did include batching, so it was completed in under an hour.
@@ -474,16 +478,27 @@ Mistral only have one embedding option with size 1024, smaller than OpenAI's sma
 5. Ran the `npx supabase gen types ...` script in my server code so IntelliSense can see the new option
 6. Added mistral as an option all the way through to the user frontend
 
+I'm logging the duration times for embedding and retrieval across both OpenAI and Mistral. I'll add that in here when I have more data.
+
 ## Other notes
 
 - I've shown the happy path here, perhaps 4 hours of human time. I would estimate there was another 8 hours of active time spent on deadends and debugging.
 - Writing this cookbook as I was working through this task made it much easier to jump back in after a one day gap when my focus was elsewhere.
-- Embedding costs for this project were trivial. 30,000 entries came under $0.02 for both OpenAI and Mistral
+- Embedding costs for this project were trivial. 30k entries came under $0.02 for both OpenAI and Mistral
 
-## References
+## Links
 
-- https://platform.openai.com/docs/models/text-embedding-3-small
-- https://supabase.com/docs/guides/ai/semantic-search
+### Embedding Models
+
+- OpenAI https://platform.openai.com/docs/models/text-embedding-3-small
+- Mistral https://docs.mistral.ai/capabilities/embeddings/overview/
+
+### More Reading
+
+- Distance Metrics https://chrisloy.dev/post/2025/06/30/distance-metrics
+- Semantic Search https://supabase.com/docs/guides/ai/semantic-search
+
+### This Project
 
 Full code for creating the above search service is here: https://github.com/yablochko8/color-finder-semantic-search
 
