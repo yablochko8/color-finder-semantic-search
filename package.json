@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@mistralai/mistralai": "^1.7.2",
     "@supabase/supabase-js": "^2.50.2",
     "openai": "^5.7.0",
     "supabase": "^2.26.9"
