@@ -38,7 +38,7 @@ CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 ```
 
-![Step 1 Screenshot](./screenshots/color-genie-1.png)
+![Step 1 Screenshot](./screenshots/step-1.png)
 
 ## Step 2 - Create a Table in the Database
 
