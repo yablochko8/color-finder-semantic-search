@@ -359,6 +359,9 @@ In my case that's https://brandmint.ai/color-genie
 
 The server code matches the pattern of a testQuery above.
 
+![Color Genie Screenshot](./screenshots/color-genie-1.png)
+![Color Genie Screenshot](./screenshots/color-genie-2.png)
+
 Remember to add the hashtag back in to the color hex value before passing it to as a style parameter, and you're good to go!
 
 ## Side Quest - Solving Timeouts
