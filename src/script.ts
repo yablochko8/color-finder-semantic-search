@@ -121,7 +121,7 @@ const testQuery = async (logging: boolean = false) => {
     console.error("RPC error:", error);
   } else {
     if (logging) {
-      data.map((d, i) => {
+      data.forEach((d, i) => {
         console.log(`${i + 1}. ${d.name}, ${d.distance}`);
       });
       console.log(`Query took ${duration}ms`);
