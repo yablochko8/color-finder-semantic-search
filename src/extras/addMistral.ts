@@ -112,3 +112,41 @@ const runFullScript = async (stepSize: number, startRow: number = 0) => {
 // saveEmbeddingsToDB(updates);
 
 // addMistralEmbedding("18th Century Green");
+
+const testQuery = async (logging: boolean = false) => {
+  const startTime = performance.now();
+  const mistralUpdate = await getEmbeddingMistral([
+    "the one holy religious order of catholic france and poland",
+  ]);
+
+  const testEmbeddingString = mistralUpdate[0].embedding_mistral_1024;
+  const checkpoint1 = performance.now();
+
+  const { data, error } = await clientSupabase.rpc(
+    "search_embedding_mistral_1024",
+    {
+      query_embedding: testEmbeddingString,
+      match_count: 10,
+    }
+  );
+
+  const checkpoint2 = performance.now();
+
+  const endTime = performance.now();
+  const duration = Math.round(endTime - startTime);
+  const duration1 = Math.round(checkpoint1 - startTime);
+  const duration2 = Math.round(checkpoint2 - checkpoint1);
+
+  if (error) {
+    console.error("RPC error:", error.details);
+  } else {
+    if (logging) {
+      console.log("Matches:", data);
+      console.log(`Query took ${duration}ms`);
+      console.log(`Mistral call to get embedding: ${duration1}ms`);
+      console.log(`Supabase call to get results: ${duration2}ms`);
+    }
+  }
+};
+
+// testQuery(true);
