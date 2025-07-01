@@ -499,10 +499,6 @@ I'm logging the duration times for embedding and retrieval across both OpenAI an
 - Distance Metrics https://chrisloy.dev/post/2025/06/30/distance-metrics
 - Semantic Search https://supabase.com/docs/guides/ai/semantic-search
 
-### This Project
-
-Full code for creating the above search service is here: https://github.com/yablochko8/color-finder-semantic-search
-
-That repo includes an .md version of this guide. Corrections and improvements always welcome!
+### Try It Out
 
 If you just want to search for colors, jump over to the [Color Genie on brandmint.ai](https://brandmint.ai/color-genie)
