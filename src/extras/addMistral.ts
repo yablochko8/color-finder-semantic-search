@@ -90,8 +90,12 @@ const updateCycle = async (startRow: number, stopRow: number) => {
   return colorNames.length;
 };
 
-const runFullScript = async (stepSize: number, startRow: number = 0) => {
-  for (let i = startRow; i < 35000; i += stepSize) {
+const runFullScript = async (
+  stepSize: number,
+  startRow: number = 0,
+  endRow: number = 35000
+) => {
+  for (let i = startRow; i < endRow; i += stepSize) {
     await updateCycle(i, i + stepSize);
     await delay(500);
   }
@@ -119,7 +123,7 @@ const testQuery = async (logging: boolean = false) => {
     "the one holy religious order of catholic france and poland",
   ]);
 
-  const testEmbeddingString = mistralUpdate[0].embedding_mistral_1024;
+  const testEmbeddingString = mistralUpdate[0]?.embedding_mistral_1024;
   const checkpoint1 = performance.now();
 
   const { data, error } = await clientSupabase.rpc(
