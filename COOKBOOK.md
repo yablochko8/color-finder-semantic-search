@@ -1,10 +1,22 @@
-# STEP ONE - CREATE A VECTOR DATABASE TO HOLD THE DATA
+# How to create a semantic search engine for colors (or anything else) using Supabase
 
-Supabase > new project
+When I saw this [post on Hacker News](https://news.ycombinator.com/item?id=44317291) I was intrigued by the reference to a dataset of 30,000 named colors.
 
-Add vector extension...
+I use colors a lot, and love the ecosystem of color tools out there (examples one, two, three, four). One thing conspicuous by its absence is semantic search for color.
 
-In the SQL Editor: choose New SQL Snippet (Execute SQL Queries)
+So you're creating some content and you need a color that captures something abstract like "rural bliss" or something ephemeral like "a rainy night in futuristic Tokyo". I don't believe there are any semantic search services for color, so I of course I built one:
+
+https://brandmint.ai/color-genie
+
+You can build one too! Or a semantic search engine for anything else you have data on.
+
+## Step 1 - Create a Vector Database to hold the data
+
+1a - Supabase > new project
+
+1b - Add vector extension
+
+You'll need to add the vector extension. In the SQL Editor: choose New SQL Snippet (Execute SQL Queries)
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS extensions;
@@ -12,25 +24,20 @@ CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 ```
 
-(In theory you could also throw it into the public schema but security best practice is to put it in a private schema)
+1c - Create a new table
 
-Create a new table
+Even though you've just added the 'extensions' schema, the table itself will live in the 'public' schema.
 
-Create this under the 'public' schema
-You have to do this with another SQL command.
-
-I prefer to use the interface for something like this, but it doesn't let you specify vector size.
+I usually prefer to use the interface for something like this, but the Supabase interface doesn't let you specify vector size. This means you will need to do this with another SQL command.
 
 We're going to need the following columns:
 
 - id (bigserial)
 - created_at (timestamp, default to now() - may be useful later if expanding the list)
-- name (string)
+- name (string - in this case we want to make sure we don't allow duplicate names)
 - hex (string)
 - is_good_name (boolean, default false)
 - embedding_small vector(1536)
-
-We will need an index for the embedding column that we end up searching on, but we'll get better performance if we add that AFTER we've populated the table with data.
 
 So here's the SQL:
 
@@ -45,19 +52,15 @@ embedding_small vector(1536)
 );
 ```
 
-If you get a security warning about Row Level Security, so we enable that on the table.
+You may get a security warning about Row Level Security, so enable that on the table manually after creating it. Then click "Add RLS Policy". I just use the Templates to enable read access for all users.
 
-Then click "Add RLS Policy". I just use the Templates to say Enable read access for all users.
+## Step 2 - Pull in the data source
 
-# STEP TWO - PULL IN THE SOURCE DATA
-
-The source data is in this excellent project here:
-
-https://github.com/meodai/color-names/blob/main/src/colornames.csv
+The source data is in [this excellent project](https://github.com/meodai/color-names/blob/main/src/colornames.csv). Thank you David Aerne (meodai)!
 
 Easy route: just copy paste.
 
-Sidequest: I want to pull in the color list in a way that will make easier to pull in future updates.
+Sidequest: I want to pull in the color list in a way that will make easier to pull in future updates, so I pull it in via git.
 
 To sync first time:
 
@@ -79,15 +82,27 @@ git commit -m "Update colornames.csv from meodai color-names"
 git push
 ```
 
-# STEP THREE - WRITE A SCRIPT TO TURN THE SOURCE DATA INTO DB-READY DATA
+## Step 3 - Write a script to turn the source data into DB-ready data
 
-I'm going to use JavaScript.
+I'm going to use TypeScript.
 
-First I write an integration with OpenAI...
+3a - Connect with an AI provider embedding endpoint
 
-Then I write a super simple script that calls that
+First I write a simple integration with OpenAI:
 
-script.ts
+```ts
+import OpenAI from "openai";
+
+const apiKey = process.env.OPENAI_API_KEY;
+
+if (!apiKey) {
+  throw new Error("OPENAI_API_KEY is not set");
+}
+
+export const clientOpenai = new OpenAI({ apiKey });
+```
+
+Then a function to call it:
 
 ```ts
 import { clientOpenai } from "./clientOpenai";
@@ -100,7 +115,11 @@ const getEmbedding = async (inputText: string) => {
   });
   return embedding.data[0].embedding;
 };
+```
 
+Then a super simple script that calls the function:
+
+```ts
 const testRun = async () => {
   const embedding = await getEmbedding("red");
   console.log(embedding);
@@ -116,13 +135,13 @@ To run this, I use bun. So the Terminal command is:
 bun src/script.ts
 ```
 
-Next, I integrate Supabase.
+3b - Connect scripting code with Supabase
 
 To do this you'll need your Project ID (find this on Settings > General > Project Settings).
 
 It will look something like this: "abcdefghijklmnopqrst"
 
-Your .env file will need a SUPABASE_URL, which will look something like this:
+Your .env file will need a SUPABASE_URL, which will be built around the Project ID using this format:
 
 "https://abcdefghijklmnopqrst.supabase.co"
 
@@ -146,18 +165,22 @@ export const clientSupabase = createClient<Database>(supabaseUrl, supabaseKey);
 
 To create that types/supabase file, you'll need to...
 
-1. Create a types folder
-2. Install Supabase: `npm i supabase`
-3. Login to Supabase CLI: `npx supabase login`
-4. Follow the login flow in your browser
+1. Install Supabase: `npm i supabase`
+2. Login to Supabase CLI: `npx supabase login`
+3. Follow the login flow in your browser
+4. Create a types folder or similar path, so that you can then...
 5. Generate TypeScript types: `npx supabase gen types typescript --project-id abcdefghijklmnopqrst > types/supabase.ts`
 
-Now we have our supabase client created, we want to save color entries to it. There's a bit of data prep here...
+3c - Save our first color to the database
+
+The `types/supabase.ts` makes it nice and clear what shape our data needs to be in, so let's get the data ready.
+
+Bear in mind:
 
 - the vector must be passed in as a string
 - we want to respect the uniqueness of the name, so we should do an upsert rather than insert
 
-And the result is:
+So our target state is:
 
 ```ts
 type PreppedColor = {
@@ -179,11 +202,17 @@ const saveColorEntry = async (preppedColor: PreppedColor) => {
 };
 ```
 
-In my code I'm making sure to strip the hash character out of the color values, but that's a personal preference.
+In my code I'm making sure to strip the hash character out of the color values, that's a personal preference.
 
 I've also added in time delays just in case.
 
-# STEP FOUR - ADD A VECTOR INDEX TO THE DATABASE
+The full flow for data retrieval and indexing in my case was as follows:
+
+getColorRows -> readColorRow -> prepColorEntry -> saveColorEntry
+
+These functions are very project specific but if you want dig into the code you can find it [here](https://github.com/yablochko8/color-finder-semantic-search/blob/main/src/script.ts).
+
+## Step 3 - Add a Vector Index to the Database
 
 The command you will want to run looks something like this:
 
@@ -193,6 +222,8 @@ on public.colors
 using ivfflat (embedding_small vector_ip_ops)
 with (lists = 30);
 ```
+
+Let's explain these terms:
 
 **ivfflat** = An index method optimized for high-dimensional vector data. It divides vectors into clusters for faster searching. Alternatives would be hnsw (Hierarchical Navigable Small World) which can be faster but uses more memory.
 
@@ -205,7 +236,7 @@ I followed the [Microsoft advice for ivfflat](https://learn.microsoft.com/en-us/
 1. Use lists equal to rows / 1000 for tables with up to 1 million rows and sqrt(rows) for larger datasets.
 2. For probes start with lists / 10 for tables up to 1 million rows and sqrt(lists) for larger datasets.
 
-HOWEVER - you may hit the problem I hit, which was that the working memory needed is higher than the default Supabase limits, and can't be increased via the interface.
+HOWEVER - you may hit the problem I hit, which was that the working memory needed is higher than the default Supabase limits, and can't be increased via the interface!
 
 This meant I needed to connect to the database via Terminal.
 
@@ -379,6 +410,13 @@ Before narrowing down on the actual cause of the latency, here are other things 
 - This cookbook would have saved me an estimated 5 hours I spent on deadends and debugging
 - Embedding costs for this project were trivial. 30,000 entries came to $0.002 (OpenAI's text-embedding-3-small)
 
+
 ## References
 
+trivial cost (total cost for 30,000 entries came to $0.002)
+
+https://platform.openai.com/docs/models/text-embedding-3-small
+https://platform.openai.com/docs/models/text-embedding-3-large
+
 - https://supabase.com/docs/guides/ai/semantic-search
+
