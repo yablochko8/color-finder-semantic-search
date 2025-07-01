@@ -76,7 +76,7 @@ const saveColorEntry = async (preppedColor: PreppedColor) => {
 
 const testEmbedding = async () => {
   const embedding = await getEmbedding("red");
-  console.log(embedding);
+  fs.writeFile("embedding.txt", JSON.stringify(embedding, null, 2), "utf8");
   console.log(embedding.length);
 };
 
@@ -96,22 +96,39 @@ const testSaveColorEntry = async () => {
 
 // testSaveColorEntry();
 
-const testQuery = async () => {
-  const testEmbedding = await getEmbedding("the one holy religious order");
+const testQuery = async (logging: boolean = false) => {
+  const startTime = performance.now();
+  const testEmbedding = await getEmbedding(
+    "the one holy religious order of catholic france and poland"
+  );
+
+  const checkpoint1 = performance.now();
 
   const { data, error } = await clientSupabase.rpc("query_embedding_small", {
     query_embedding: JSON.stringify(testEmbedding),
     match_count: 10,
   });
 
+  const checkpoint2 = performance.now();
+
+  const endTime = performance.now();
+  const duration = Math.round(endTime - startTime);
+  const duration1 = Math.round(checkpoint1 - startTime);
+  const duration2 = Math.round(checkpoint2 - checkpoint1);
+
   if (error) {
     console.error("RPC error:", error);
   } else {
-    console.log("Matches:", data);
+    if (logging) {
+      console.log("Matches:", data);
+      console.log(`Query took ${duration}ms`);
+      console.log(`OpenAI call to get embedding: ${duration1}ms`);
+      console.log(`Supabase call to get results: ${duration2}ms`);
+    }
   }
 };
 
-// testQuery();
+testQuery(true);
 
 ////////////////////
 // UTILITY FUNCTIONS + FULL SCRIPT

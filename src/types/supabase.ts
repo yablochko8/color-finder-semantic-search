@@ -48,17 +48,14 @@ export type Database = {
         Args: { query_embedding: string; match_count?: number }
         Returns: {
           name: string
-          distance: number
-        }[]
-      }
-      query_embedding_small_with_hex: {
-        Args: { query_embedding: string; match_count?: number }
-        Returns: {
-          name: string
           hex: string
           is_good_name: boolean
           distance: number
         }[]
+      }
+      test_vector_minimal: {
+        Args: { query_embedding: string }
+        Returns: number
       }
     }
     Enums: {
