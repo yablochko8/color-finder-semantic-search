@@ -1,4 +1,5 @@
-# How to create a semantic search engine for colors (or anything else) using Supabase and Mistral/OpenAI
+# Semantic Search in 14 Easy Steps
+### How to create a semantic search engine for colors (or anything else) using Supabase and Mistral or OpenAI
 
 When I saw this [post on Hacker News](https://news.ycombinator.com/item?id=44317291) I was intrigued by the reference to a dataset of 30,000 named colors.
 
