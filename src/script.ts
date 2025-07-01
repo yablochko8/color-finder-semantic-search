@@ -131,7 +131,7 @@ const testQuery = async (logging: boolean = false) => {
   }
 };
 
-testQuery(true);
+// testQuery(true);
 
 ////////////////////
 // UTILITY FUNCTIONS + FULL SCRIPT
