@@ -104,10 +104,13 @@ const testQuery = async (logging: boolean = false) => {
 
   const checkpoint1 = performance.now();
 
-  const { data, error } = await clientSupabase.rpc("query_embedding_small", {
-    query_embedding: JSON.stringify(testEmbedding),
-    match_count: 10,
-  });
+  const { data, error } = await clientSupabase.rpc(
+    "search_embedding_openai_1536",
+    {
+      query_embedding: JSON.stringify(testEmbedding),
+      match_count: 10,
+    }
+  );
 
   const checkpoint2 = performance.now();
 
