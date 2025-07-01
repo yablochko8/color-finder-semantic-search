@@ -260,6 +260,8 @@ Where...
 - abcdefghijklmnopqrst is your Project Id
 - you'll be prompted for a password, it's the password you gave when you first set up the database
 
+I needed this a few times and found it useful to store in .env for easy copy and paste.
+
 Once connected to the database by command line, you can run this code.
 
 ```sql
