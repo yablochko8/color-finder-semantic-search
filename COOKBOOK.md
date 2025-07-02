@@ -7,7 +7,7 @@ I use colors a lot, and love the ecosystem of color tools out there (examples [o
 
 The use case: you're creating some content and you need a color that captures something abstract like "rural bliss" or something ephemeral like "a rainy night in futuristic Tokyo". You can click around on a color wheel or random palette generator, but you want to jump to a starting point that someone else has already put some thought into. You want a _named color_.
 
-I don't believe there already exists a semantic search engine for named colors, so I built it:
+I couldn't find any existing semantic search engines specifically for named colors, so I built one:
 
 https://brandmint.ai/color-genie
 
@@ -29,7 +29,7 @@ Good to know.
 
 Supabase > new project > follow the flow to create a new PostgreSQL
 
-Once it exists, the first thing you'll need to add the vector extension. In the SQL Editor: choose New SQL Snippet (Execute SQL Queries)
+Once it exists, the first thing you'll need to do is add the vector extension. In the SQL Editor: choose New SQL Snippet (Execute SQL Queries)
 
 There are two queries to run here:
 
@@ -43,18 +43,18 @@ CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 
 ## Step 2 - Create a Table in the Database
 
-Even though you've just added the `extensions` schema, the `colors` table itself will live in the `public` schema.
+Even though you've just added the `extensions` schema to support vectors, the `colors` table itself will live in the `public` schema.
 
-I usually prefer to use the interface for something like this, but the Supabase interface doesn't let you specify vector size. This means you will need to do this with another SQL command.
+Supabase does have a UI for creating a new Table but it doesn't let you specify vector size, so you'll need to do this with another SQL command.
 
 For our color data we're going to need the following columns:
 
 - id (number is good for us here)
-- created_at (timestamp defaulting to now() - may be useful later if expanding the list)
+- created_at (timestamp defaulting to now - may be useful later if expanding the list)
 - name (unique string - we don't want duplicate names pointing at different colors)
 - hex (string)
 - is_good_name (boolean defaulting to false)
-- embedding_openai_1536 vector(1536)
+- embedding_openai_1536 (vector with 1536 dimensions)
 
 Here's the SQL:
 
@@ -69,7 +69,7 @@ embedding_openai_1536 vector(1536)
 );
 ```
 
-You may get a security warning about Row Level Security. You can manually enable that on the table after creating it, then click "Add RLS Policy". When choosing policy, I just used the Templates to enable read access for all users.
+You may get a security warning about Row Level Security. You can manually enable that on the table after creating it, then click "Add RLS Policy". When choosing a policy, I just used the Templates to enable read access for all users.
 
 ## Step 3 - Pull in the data source
 
@@ -189,6 +189,7 @@ Save that script as a comment in your .env file, you will use it a ton!
 
 ## Step 6 - Define what DB-ready data looks like
 
+
 Our `types/supabase.ts` file makes it nice and clear what shape our data needs to be in, so let's write a function that can write a row of data into our database, and use that to clearly define the state we need to get our data into. For example this approach lets us learn that the vector must be passed in as a string, which would not be otherwise obvious.
 
 So our target state is:
@@ -255,6 +256,7 @@ ETL scripts are very project-specific. If you are following guide this literally
 ## Step 8 - Save our first few colors to the database
 
 At this point I ran my ETL script with `maxRows = 50` just to have something to test against.
+
 
 ## Step 9 - Add a Vector Index to the Database
 
@@ -498,6 +500,7 @@ I'm logging the duration times for embedding and retrieval across both OpenAI an
 
 - Distance Metrics https://chrisloy.dev/post/2025/06/30/distance-metrics
 - Semantic Search https://supabase.com/docs/guides/ai/semantic-search
+
 
 ### Try It Out
 
