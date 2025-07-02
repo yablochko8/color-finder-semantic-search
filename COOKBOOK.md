@@ -1,4 +1,5 @@
-# How to create a semantic search engine for colors (or anything else) using Supabase and Mistral/OpenAI
+# Semantic Search in 14 Easy Steps
+### How to create a semantic search engine for colors (or anything else) using Supabase and Mistral or OpenAI
 
 When I saw this [post on Hacker News](https://news.ycombinator.com/item?id=44317291) I was intrigued by the reference to a dataset of 30,000 named colors.
 
@@ -188,6 +189,7 @@ Save that script as a comment in your .env file, you will use it a ton!
 
 ## Step 6 - Define what DB-ready data looks like
 
+
 Our `types/supabase.ts` file makes it nice and clear what shape our data needs to be in, so let's write a function that can write a row of data into our database, and use that to clearly define the state we need to get our data into. For example this approach lets us learn that the vector must be passed in as a string, which would not be otherwise obvious.
 
 So our target state is:
@@ -254,6 +256,7 @@ ETL scripts are very project-specific. If you are following guide this literally
 ## Step 8 - Save our first few colors to the database
 
 At this point I ran my ETL script with `maxRows = 50` just to have something to test against.
+
 
 ## Step 9 - Add a Vector Index to the Database
 
@@ -498,10 +501,7 @@ I'm logging the duration times for embedding and retrieval across both OpenAI an
 - Distance Metrics https://chrisloy.dev/post/2025/06/30/distance-metrics
 - Semantic Search https://supabase.com/docs/guides/ai/semantic-search
 
-### This Project
 
-Full code for creating the above search service is here: https://github.com/yablochko8/color-finder-semantic-search
-
-That repo includes an .md version of this guide. Corrections and improvements always welcome!
+### Try It Out
 
 If you just want to search for colors, jump over to the [Color Genie on brandmint.ai](https://brandmint.ai/color-genie)
