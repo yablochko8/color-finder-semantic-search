@@ -59,13 +59,13 @@ For our color data we're going to need the following columns:
 Here's the SQL:
 
 ```sql
-create table public.colors (
-id bigserial primary key,
-created_at timestamp with time zone default now(),
-name text not null unique,
-hex text,
-is_good_name boolean default false,
-embedding_openai_1536 vector(1536)
+CREATE TABLE public.colors (
+    id BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    name TEXT NOT NULL UNIQUE,
+    hex TEXT,
+    is_good_name BOOLEAN DEFAULT FALSE,
+    embedding_openai_1536 VECTOR(1536)
 );
 ```
 
@@ -262,9 +262,9 @@ The command you will want to run looks something like this:
 
 ```sql
 CREATE INDEX CONCURRENTLY embedding_openai_1536_ip_lists_30_idx
-on public.colors
-using ivfflat (embedding_openai_1536 vector_ip_ops)
-with (lists = 30);
+    ON public.colors
+    USING ivfflat (embedding_openai_1536 vector_ip_ops)
+    WITH (lists = 30);
 ```
 
 As far as I can tell the index name is never again touched by humans unless they're viewing a list of indices, so make it as long and specific as you like.
@@ -316,9 +316,9 @@ Once connected to the database by command line, I was able to run this code.
 SET maintenance_work_mem = '128MB';
 
 CREATE INDEX CONCURRENTLY embedding_openai_1536_ip_lists_30_idx
-on public.colors
-using ivfflat (embedding_openai_1536 vector_ip_ops)
-with (lists = 30);
+    ON public.colors
+    USING ivfflat (embedding_openai_1536 vector_ip_ops)
+    WITH (lists = 30);
 ```
 
 ## Step 10 - Create an RPC Function to call that Vector Index from code
@@ -335,30 +335,30 @@ Here's the code for creating the index:
 
 ```sql
 CREATE OR REPLACE FUNCTION search_embedding_openai_1536(
-  query_embedding vector(1536),
-  match_count int default 10
+    query_embedding VECTOR(1536),
+    match_count INT DEFAULT 10
 )
 RETURNS TABLE (
-  name text,
-  hex text,
-  is_good_name boolean,
-  distance float
+    name TEXT,
+    hex TEXT,
+    is_good_name BOOLEAN,
+    distance FLOAT
 )
 LANGUAGE sql VOLATILE
 AS $$
+    SET ivfflat.probes = 3;
 
-  SET  ivfflat.probes = 3;
-
-  SELECT
-    c.name,
-    c.hex,
-    c.is_good_name,
-    c.embedding_openai_1536 <#> query_embedding AS distance
-  FROM (
-    SELECT * FROM colors
-    ORDER BY embedding_openai_1536 <#> query_embedding
-    LIMIT match_count
-  ) c;
+    SELECT
+        c.name,
+        c.hex,
+        c.is_good_name,
+        c.embedding_openai_1536 <#> query_embedding AS distance
+    FROM (
+        SELECT *
+        FROM colors
+        ORDER BY embedding_openai_1536 <#> query_embedding
+        LIMIT match_count
+    ) c;
 $$;
 ```
 
@@ -432,10 +432,10 @@ SLOW version (15,000ms):
 
 ```sql
 SELECT
-  name,
-  hex,
-  is_good_name,
-  embedding_openai_1536 <#> query_embedding as distance
+    name,
+    hex,
+    is_good_name,
+    embedding_openai_1536 <#> query_embedding AS distance
 FROM colors
 ORDER BY distance
 LIMIT match_count;
@@ -445,14 +445,15 @@ FAST version (150ms):
 
 ```sql
 SELECT
-  c.name,
-  c.hex,
-  c.is_good_name,
-  c.embedding_openai_1536 <#> query_embedding AS distance
+    c.name,
+    c.hex,
+    c.is_good_name,
+    c.embedding_openai_1536 <#> query_embedding AS distance
 FROM (
-  SELECT * FROM colors
-  ORDER BY embedding_openai_1536 <#> query_embedding
-  LIMIT match_count
+    SELECT *
+    FROM colors
+    ORDER BY embedding_openai_1536 <#> query_embedding
+    LIMIT match_count
 ) c;
 ```
 
