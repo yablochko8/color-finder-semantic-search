@@ -411,7 +411,9 @@ The server code matches the pattern of a testQuery above.
 ![Color Genie Screenshot](./screenshots/color-genie-1.png)
 ![Color Genie Screenshot](./screenshots/color-genie-2.png)
 
-Remember to add the hashtag back in to the color hex value before passing it to as a style parameter, and you're good to go!
+Some things to note at this stage:
+- Every query will need to be passed to the embedding service of OpenAI/Mistral to fetch a vector version of that text, and the vector will be passed to Supabase as a query. You can't send the original text query directly to Supabase. You also can't mix and match, if you indexed against OpenAI vectors you need to query using OpenAI vectors.
+- Remember to add the hashtag back in to the color hex value before passing it to as a style parameter.
 
 ## Side Quest A - Solving Timeouts
 
