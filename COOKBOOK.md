@@ -1,5 +1,4 @@
 # Build Your Own Color Search Engine
-
 ### How to create a semantic search engine for colors (or anything else) using Supabase and an embedding provider such as OpenAI or Mistral
 
 When I saw this [post on Hacker News](https://news.ycombinator.com/item?id=44317291) I was intrigued by the reference to a dataset of 30,000 named colors.
