@@ -1,5 +1,6 @@
-# Semantic Search in 14 Easy Steps
-### How to create a semantic search engine for colors (or anything else) using Supabase and Mistral or OpenAI
+# Build Your Own Color Search Engine
+
+### How to create a semantic search engine for colors (or anything else) using Supabase and an embedding provider such as OpenAI or Mistral
 
 When I saw this [post on Hacker News](https://news.ycombinator.com/item?id=44317291) I was intrigued by the reference to a dataset of 30,000 named colors.
 
@@ -189,7 +190,6 @@ Save that script as a comment in your .env file, you will use it a ton!
 
 ## Step 6 - Define what DB-ready data looks like
 
-
 Our `types/supabase.ts` file makes it nice and clear what shape our data needs to be in, so let's write a function that can write a row of data into our database, and use that to clearly define the state we need to get our data into. For example this approach lets us learn that the vector must be passed in as a string, which would not be otherwise obvious.
 
 So our target state is:
@@ -246,17 +246,16 @@ into this:
 Some notes on how I approached this:
 
 - My functions sequence was `getColorRows -> readColorRow -> prepColorEntry -> saveColorEntry`
-- I chose sure to strip out the hash character from the color values, that's a personal preference
+- I chose to strip out the hash character from the hex color values, that's a personal preference
 - I added a time delay just in case of rate limiting
 
 The result is a simple "ETL" script, it lets you `Extract Transform Load` data from one place to another.
 
-ETL scripts are very project-specific. If you are following guide this literally to build a color search engine with the same data source, you see how I wrote these functions [here](https://github.com/yablochko8/color-finder-semantic-search/blob/main/src/script.ts).
+ETL scripts are very project-specific. If you are following guide this literally to build a color search engine with the same data source, you can see how I wrote these functions [here](https://github.com/yablochko8/color-finder-semantic-search/blob/main/src/script.ts).
 
 ## Step 8 - Save our first few colors to the database
 
 At this point I ran my ETL script with `maxRows = 50` just to have something to test against.
-
 
 ## Step 9 - Add a Vector Index to the Database
 
@@ -275,7 +274,7 @@ Let's explain the other parameter choices:
 
 **ivfflat** = An index method optimized for high-dimensional vector data. It divides vectors into clusters for faster searching. The alternative would be `hnsw` (Hierarchical Navigable Small World) which can be faster but uses more memory.
 
-**vector_ip_ops** aka internal product = Fast way comparing vectors that can only be used in conjunction with certain embedding models, those that have been unit normalised. Alternatives are `vector_l2_ops` (Euclidean distance) and `vector_cosine_ops` (cosine similarity). Thank you to Chris Loy for helping me out here, he wrote a good [explainer post](https://chrisloy.dev/post/2025/06/30/distance-metrics) that goes through the different options.
+**vector_ip_ops** aka internal product = Fast way to compare vectors that can only be used in conjunction with certain embedding models, those that have been unit normalised. Alternatives are `vector_l2_ops` (Euclidean distance) and `vector_cosine_ops` (cosine similarity). Thank you to Chris Loy for helping me out here, he wrote a good [explainer post](https://chrisloy.dev/post/2025/06/30/distance-metrics) that goes through the different options.
 
 **lists** = Number of clusters to divide the vectors into. Generally: More lists give faster search but lower accuracy.
 
@@ -389,13 +388,13 @@ const testQuery = async () => {
 };
 ```
 
-Sure enough, "very fast car" gives us a result of "100 Mph", success!
+Sure enough, a wuery for "very fast car" gives us the named color "100 Mph", a speedy red #c93f38. Success!
 
 ## Step 12 - Add in all the data
 
 At this point I added in all 30,355 entries. This took about 8 hours because I was too impatient to add in batching at the beginning.
 
-- 🟢 Good news: It cost me $0.02 of API costs for the embedding values.
+- 🟢 Good news: It cost me only $0.02 of API costs for the embedding values.
 - 🔴 Bad news: It pushed me over the database size limits on Supabase...
 
 ## Step 13 - Upgrade Supabase
@@ -487,7 +486,7 @@ I'm logging the duration times for embedding and retrieval across both OpenAI an
 
 - I've shown the happy path here, perhaps 4 hours of human time. I would estimate there was another 8 hours of active time spent on deadends and debugging.
 - Writing this cookbook as I was working through this task made it much easier to jump back in after a one day gap when my focus was elsewhere.
-- Embedding costs for this project were trivial. 30k entries came under $0.02 for both OpenAI and Mistral
+- Embedding costs for this project were trivial. 30k entries came in under $0.02 for both OpenAI and Mistral
 
 ## Links
 
@@ -500,7 +499,6 @@ I'm logging the duration times for embedding and retrieval across both OpenAI an
 
 - Distance Metrics https://chrisloy.dev/post/2025/06/30/distance-metrics
 - Semantic Search https://supabase.com/docs/guides/ai/semantic-search
-
 
 ### Try It Out
 
